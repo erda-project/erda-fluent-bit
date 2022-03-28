@@ -26,3 +26,4 @@
 2. 生成：
 `flog -t log -o testdata/k8s/test.log -b 1073741824 -s 10ms -w`
 生成1G大小日志`testdata/k8s/test.log`，
+
