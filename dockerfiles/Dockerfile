@@ -65,6 +65,7 @@ RUN cmake -DFLB_RELEASE=On \
           -DFLB_HTTP_SERVER=On \
           -DFLB_IN_SYSTEMD=On \
           -DFLB_OUT_KAFKA=On \
+          -DFLB_CONFIG_YAML=Off \
           -DFLB_OUT_PGSQL=On ..
 
 RUN make -j $(getconf _NPROCESSORS_ONLN)
