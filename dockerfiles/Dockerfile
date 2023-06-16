@@ -82,7 +82,7 @@ FROM registry.erda.cloud/erda-x/debian:10
 
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
-    bash gdb valgrind build-essential vim curl sqlite3 ca-certificates libpq5
+    bash gdb valgrind build-essential vim curl sqlite3 ca-certificates libpq5 sed
 
 COPY --from=builder /fluent-bit /fluent-bit
 

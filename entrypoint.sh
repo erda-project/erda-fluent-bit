@@ -13,69 +13,48 @@ _int() {
 trap _term SIGTERM
 trap _int SIGINT
 
-# --- init work block ---
+# --- init work block begin ---
 
+# need export for *.conf use
+export FLUENTBIT_INPUT_TAIL_EXCLUDE_PATH=${FLUENTBIT_INPUT_TAIL_EXCLUDE_PATH:-'/var/log/containers/*fluent-bit*.log'}
+export LOG_LEVEL=${LOG_LEVEL:-'error'}
+export MASTER_VIP_URL=${MASTER_VIP_URL:-'https://kubernetes.default.svc:443'}
+export FLUENTBIT_THROTTLE_RATE=${FLUENTBIT_THROTTLE_RATE:-1000}
+export FLUENTBIT_THROTTLE_RETAIN=${FLUENTBIT_THROTTLE_RETAIN:-'true'}
+export FLUENTBIT_THROTTLE_PRINT_STATUS=${FLUENTBIT_THROTTLE_PRINT_STATUS:-'false'}
 
-if [ -z ${FLUENTBIT_INPUT_TAIL_EXCLUDE_PATH} ]; then
-    export FLUENTBIT_INPUT_TAIL_EXCLUDE_PATH='/var/log/containers/*fluent-bit*.log'
-fi
-
-if [ -z ${LOG_LEVEL} ]; then
-    export LOG_LEVEL=error
-fi
-
-if [ -z ${DICE_IS_EDGE} ]; then
-    export DICE_IS_EDGE='false'
-fi
-
-if [ -z ${COLLECTOR_URL} ]; then
-  if [ $DICE_IS_EDGE == 'true' ]; then
-    export COLLECTOR_URL=$COLLECTOR_PUBLIC_URL
+# used -r in current file
+DICE_IS_EDGE=${DICE_IS_EDGE:-'false'} # not used -r in conf files, no need to export
+CONFIG_FILE=${CONFIG_FILE:-'/fluent-bit/etc/ds/fluent-bit.conf'}
+DICE_CONTAINER_RUNTIME=${DICE_CONTAINER_RUNTIME:-'docker'} # select runtime's specific config
+if [ -z "${COLLECTOR_URL}" ]; then
+  if [ "$DICE_IS_EDGE" == "true" ]; then
+    if [ -z "${COLLECTOR_PUBLIC_URL}" ]; then
+      echo "env COLLECTOR_PUBLIC_URL unset!"
+      exit 1
+    fi
+    COLLECTOR_URL="$COLLECTOR_PUBLIC_URL"
   else
-    export COLLECTOR_URL='http://'$COLLECTOR_ADDR
+    if [ -z "${COLLECTOR_ADDR}" ]; then
+      echo "env COLLECTOR_ADDR unset!"
+      exit 1
+    fi
+    COLLECTOR_URL="http://$COLLECTOR_ADDR"
   fi
 fi
 
-if [ -z ${MASTER_VIP_URL} ]; then
-    export MASTER_VIP_URL='https://kubernetes.default.svc:443'
-fi
-
-if [ -z ${FLUENTBIT_THROTTLE_RATE} ]; then
-    export FLUENTBIT_THROTTLE_RATE=1000
-fi
-if [ -z ${FLUENTBIT_THROTTLE_RETAIN} ]; then
-    export FLUENTBIT_THROTTLE_RETAIN=true
-fi
-if [ -z ${FLUENTBIT_THROTTLE_PRINT_STATUS} ]; then
-    export FLUENTBIT_THROTTLE_PRINT_STATUS=false
-fi
-
-if [ -z ${CONFIG_FILE} ]; then
-    export CONFIG_FILE=/fluent-bit/etc/ds/fluent-bit.conf
-fi
-
-# select runtime's specific config
-if [ -z ${DICE_CONTAINER_RUNTIME} ]; then
-    export DICE_CONTAINER_RUNTIME=docker
-fi
 # work around issue: https://github.com/fluent/fluent-bit/issues/2020
-if [ "$DICE_CONTAINER_RUNTIME" == docker ]; then
-    sed -i -- 's/${INCLUDE_RUNTIME_CONF}/docker-runtime.conf/g' $CONFIG_FILE
+if [ "$DICE_CONTAINER_RUNTIME" == "docker" ]; then
+  sed -i -- 's/${INCLUDE_RUNTIME_CONF}/docker-runtime.conf/g' "$CONFIG_FILE"
 elif [ "$DICE_CONTAINER_RUNTIME" == containerd ]; then
-    sed -i -- 's/${INCLUDE_RUNTIME_CONF}/cri-runtime.conf/g' $CONFIG_FILE
+  sed -i -- 's/${INCLUDE_RUNTIME_CONF}/cri-runtime.conf/g' "$CONFIG_FILE"
 else
-    echo "invaild DICE_CONTAINER_RUNTIME=$DICE_CONTAINER_RUNTIME"
-    exit 1
-fi
-
-
-if [ -z ${COLLECTOR_URL} ]; then
-  echo "env COLLECTOR_URL or COLLECTOR_PUBLIC_URL or COLLECTOR_ADDR unset!"
+  echo "invaild DICE_CONTAINER_RUNTIME=$DICE_CONTAINER_RUNTIME"
   exit 1
 fi
 
 # extract the protocol
-proto="$(echo $COLLECTOR_URL | grep :// | sed -e's,^\(.*://\).*,\1,g')"
+proto="$(echo "$COLLECTOR_URL" | grep '://' | sed -e 's,^\(.*://\).*,\1,g')"
 
 # remove the protocol -- updated
 url=$(echo $COLLECTOR_URL | sed -e s,$proto,,g)
@@ -89,7 +68,7 @@ hostport=$(echo $url | sed -e s,$user@,,g | cut -d/ -f1)
 # by request host without port
 host="$(echo $hostport | sed -e 's,:.*,,g')"
 # by request - try to extract the port
-port="$(echo $hostport | grep ':' |sed -e 's,^.*:,:,g' -e 's,.*:([0-9]*).*,\1,g' -e 's,[^0-9],,g')"
+port="$(echo $hostport | grep ':' | sed -r -e 's,^.*:,:,g' -e 's,.*:([0-9]*).*,\1,g' -e 's,[^0-9],,g')"
 
 # extract the path (if any)
 #path="$(echo $url | grep / | cut -d/ -f2-)"
@@ -116,27 +95,13 @@ fi
 export COLLECTOR_PORT=$port
 export COLLECTOR_HOST=$host
 
-# TODO. use basic auth temporarily
-#if [ "$CONFIG_FILE" == "/fluent-bit/etc/ds/fluent-bit.conf" ]; then
-#   credential_file='/erda-cluster-credential/CLUSTER_ACCESS_KEY'
-#   if [ -z ${CLUSTER_ACCESS_KEY} ]; then
-#   if [ -e "$credential_file" ]; then
-#     export CLUSTER_ACCESS_KEY=$(cat $credential_file)
-#   else
-#     echo "$credential_file must existed or specify env CLUSTER_ACCESS_KEY"
-#     exit 1
-#   fi
-#   fi
-#fi
-
-
 echo 'LOG_LEVEL: '$LOG_LEVEL
 echo 'COLLECTOR_PORT: '$COLLECTOR_PORT
 echo 'COLLECTOR_HOST: '$COLLECTOR_HOST
 echo 'OUTPUT_HTTP_TLS: '$OUTPUT_HTTP_TLS
 echo "CONFIG_FILE: "$CONFIG_FILE
 
-# --- init work block ---
+# --- init work block end ---
 
 /fluent-bit/bin/fluent-bit -c $CONFIG_FILE &
 
