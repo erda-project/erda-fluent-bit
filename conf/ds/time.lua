@@ -10,19 +10,16 @@ function ensure_time(_, timestamp, record)
     local sec = math.floor(timestamp)
     local nsec = math.floor((timestamp - sec) * 1e9)
 
-    -- 将时间戳转换为指定格式的日期字符串
-    local zone = os.date("%z", timestamp)
-    zone = tostring(zone)
-    if string.len(zone) > 0 then
-        -- add `:` to zone, change +0800 to +08:00
-        zone = tostring(zone):gsub("^(%+)(%d%d)(%d%d)$", "%1%2:%3")
-    else
-        zone = "Z"
-    end
+    -- 将时间戳转换为指定格式的日期字符串, zone=UTC
+    local dateStr = os.date("!%Y-%m-%dT%H:%M:%S", sec) .. string.format(".%09d", nsec) .. "Z"
 
-    -- 生成日期字符串
-    local dateStr = os.date("%Y-%m-%dT%H:%M:%S", sec) .. string.format(".%09d", nsec) .. zone
     record[timeField] = dateStr
 
     return 2, timestamp, record
 end
+
+-- -- invoke ensure_time for benchmark
+-- local socket = require("socket")
+-- local record = { time = "2021-01-01T00:00:00Z" }
+-- local _, _, record = ensure_time(nil, socket.gettime(), record)
+-- print(record["time"])
