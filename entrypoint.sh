@@ -44,14 +44,17 @@ if [ -z "${COLLECTOR_URL}" ]; then
 fi
 
 # work around issue: https://github.com/fluent/fluent-bit/issues/2020
+runtime_parser=""
 if [ "$DICE_CONTAINER_RUNTIME" == "docker" ]; then
-  sed -i -- 's/${INCLUDE_RUNTIME_CONF}/docker-runtime.conf/g' "$CONFIG_FILE"
-elif [ "$DICE_CONTAINER_RUNTIME" == containerd ]; then
-  sed -i -- 's/${INCLUDE_RUNTIME_CONF}/cri-runtime.conf/g' "$CONFIG_FILE"
+  runtime_parser='docker'
+elif [ "$DICE_CONTAINER_RUNTIME" == "containerd" ]; then
+  runtime_parser='cri'
 else
   echo "invaild DICE_CONTAINER_RUNTIME=$DICE_CONTAINER_RUNTIME"
   exit 1
 fi
+export RUNTIME_PARSER="$runtime_parser"
+echo "RUNTIME_PARSER: $RUNTIME_PARSER"
 
 # extract the protocol
 proto="$(echo "$COLLECTOR_URL" | grep '://' | sed -e 's,^\(.*://\).*,\1,g')"
@@ -92,9 +95,13 @@ if [ -z ${OUTPUT_HTTP_TLS} ]; then
   fi
 fi
 
+# local debug
+export LOCAL_DEBUG="${LOCAL_DEBUG:-'false'}"
+
 export COLLECTOR_PORT=$port
 export COLLECTOR_HOST=$host
 
+echo 'LOCAL_DEBUG: '$LOCAL_DEBUG
 echo 'LOG_LEVEL: '$LOG_LEVEL
 echo 'COLLECTOR_PORT: '$COLLECTOR_PORT
 echo 'COLLECTOR_HOST: '$COLLECTOR_HOST
@@ -103,7 +110,8 @@ echo "CONFIG_FILE: "$CONFIG_FILE
 
 # --- init work block end ---
 
-/fluent-bit/bin/fluent-bit -c $CONFIG_FILE &
+FLUENTBIT_BIN_PATH="${FLUENTBIT_BIN_PATH:-/fluent-bit/bin/fluent-bit}"
+${FLUENTBIT_BIN_PATH} -v -c $CONFIG_FILE &
 
 child=$!
 wait "$child"
