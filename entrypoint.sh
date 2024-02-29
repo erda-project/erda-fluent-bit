@@ -26,7 +26,6 @@ export FLUENTBIT_THROTTLE_PRINT_STATUS=${FLUENTBIT_THROTTLE_PRINT_STATUS:-'false
 # used -r in current file
 DICE_IS_EDGE=${DICE_IS_EDGE:-'false'} # not used -r in conf files, no need to export
 CONFIG_FILE=${CONFIG_FILE:-'/fluent-bit/etc/ds/fluent-bit.conf'}
-DICE_CONTAINER_RUNTIME=${DICE_CONTAINER_RUNTIME:-'docker'} # select runtime's specific config
 if [ -z "${COLLECTOR_URL}" ]; then
   if [ "$DICE_IS_EDGE" == "true" ]; then
     if [ -z "${COLLECTOR_PUBLIC_URL}" ]; then
@@ -43,16 +42,18 @@ if [ -z "${COLLECTOR_URL}" ]; then
   fi
 fi
 
-# work around issue: https://github.com/fluent/fluent-bit/issues/2020
+container_runtime=${DICE_CONTAINER_RUNTIME:-'docker'} # select runtime's specific config
 runtime_parser=""
-if [ "$DICE_CONTAINER_RUNTIME" == "docker" ]; then
+if [ "$container_runtime" == "docker" ]; then
   runtime_parser='docker'
-elif [ "$DICE_CONTAINER_RUNTIME" == "containerd" ]; then
+elif [ "$container_runtime" == "containerd" ]; then
   runtime_parser='cri'
 else
-  echo "invaild DICE_CONTAINER_RUNTIME=$DICE_CONTAINER_RUNTIME"
+  echo "invaild DICE_CONTAINER_RUNTIME=$container_runtime"
   exit 1
 fi
+export DICE_CONTAINER_RUNTIME="$container_runtime"
+echo "DICE_CONTAINER_RUNTIME: $DICE_CONTAINER_RUNTIME"
 export RUNTIME_PARSER="$runtime_parser"
 echo "RUNTIME_PARSER: $RUNTIME_PARSER"
 
@@ -111,7 +112,7 @@ echo "CONFIG_FILE: "$CONFIG_FILE
 # --- init work block end ---
 
 FLUENTBIT_BIN_PATH="${FLUENTBIT_BIN_PATH:-/fluent-bit/bin/fluent-bit}"
-${FLUENTBIT_BIN_PATH} -v -c $CONFIG_FILE &
+${FLUENTBIT_BIN_PATH} -c $CONFIG_FILE &
 
 child=$!
 wait "$child"
