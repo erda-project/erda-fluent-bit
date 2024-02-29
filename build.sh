@@ -14,27 +14,49 @@ echo "version=${v}"
 
 image="${DOCKER_REGISTRY}/erda-fluent-bit:${v}"
 
-echo "image=${image}"
+echo "image: ${image}"
 
-docker login -u "${DOCKER_REGISTRY_USERNAME}" -p "${DOCKER_REGISTRY_PASSWORD}" "${DOCKER_REGISTRY}"
-#docker buildx create --use
-#docker buildx build --platform linux/amd64,linux/arm64 -t "${image}" \
-#docker buildx build --platform linux/${ARCH} -t "${image}" \
-#    --label "branch=$(git rev-parse --abbrev-ref HEAD)" \
-#    --label "commit=$(git rev-parse HEAD)" \
-#    --label "build-time=$(date '+%Y-%m-%d %T%z')" \
-#    --push \
-#    -f dockerfiles/Dockerfile .
+platforms=${PLATFORMS:-"linux/amd64,linux/arm64"}
+echo "platforms: ${platforms}"
 
-buildctl --addr tcp://buildkitd.default.svc.cluster.local:1234 \
+function local_build_func() {
+  docker login -u "${DOCKER_REGISTRY_USERNAME}" -p "${DOCKER_REGISTRY_PASSWORD}" "${DOCKER_REGISTRY}"
+  docker buildx create --use
+  docker buildx build --platform ${platforms} -t "${image}" \
+    --label "branch=$(git rev-parse --abbrev-ref HEAD)" \
+    --label "commit=$(git rev-parse HEAD)" \
+    --label "build-time=$(date '+%Y-%m-%d %T%z')" \
+    --push \
+    -f dockerfiles/Dockerfile .
+}
+
+function k8s_build_func() {
+  buildctl --addr tcp://buildkitd.default.svc.cluster.local:1234 \
     --tlscacert=/.buildkit/ca.pem \
     --tlscert=/.buildkit/cert.pem \
     --tlskey=/.buildkit/key.pem \
     build \
     --frontend dockerfile.v0 \
-    --opt platform=${PLATFORMS} \
+    --opt platform=${platforms} \
     --local context=/.pipeline/container/context/fluent-bit \
     --local dockerfile=/.pipeline/container/context/fluent-bit/dockerfiles \
     --output type=image,name=${image},push=true
+  echo "image=${image}" >> $METAFILE
+}
 
-echo "image=${image}" >> $METAFILE
+# switch by local or k8s
+local_build=${LOCAL_BUILD:-"false"}
+case $local_build in
+  "true")
+    echo "local build"
+    local_build_func
+    ;;
+  "false")
+    echo "k8s build"
+    k8s_build_func
+    ;;
+  *)
+    echo "unknown build"
+    exit 1
+    ;;
+esac

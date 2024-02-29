@@ -2,7 +2,7 @@
     flush        0.5
     daemon       Off
     grace        5
-    log_level    info
+    log_level    ${LOG_LEVEL}
     parsers_file parsers.conf
     http_server  On
     http_listen  0.0.0.0
@@ -10,10 +10,10 @@
 
 [INPUT]
     name                 tail
-    path                 ./testdata/k8s/cri.log
-    DB                   ./flb_k8s.db
+    # set in .envrc
+    path                 ./testdata/k8s/${RUNTIME_PARSER}.log
+    # DB                   ./flb_k8s.db
     Tag                  kube.*
-    Read_From_Head       true
     Buffer_Chunk_Size    1MB
     Buffer_Max_Size      10MB
     Skip_Long_Lines      On
@@ -23,15 +23,22 @@
     DB.locking           true
     DB.journal_mode      WAL
     Mem_Buf_Limit        300MB
+    Read_from_Head       true
 
-    Parser               cri
+    Parser               ${RUNTIME_PARSER}
+    Multiline.parser     cri, docker
 
 [FILTER]
     Name                   multiline
     match                  kube.*
-    multiline.parser       java
+    multiline.parser       java, go, python
     multiline.key_content  log
     buffer                 off
+
+[FILTER]
+    Name   modify
+    match  *
+    add    container_runtime ${DICE_CONTAINER_RUNTIME}
 
 [FILTER]
     name modify
@@ -53,17 +60,15 @@
     match *
     remove_wildcard __pri_
 
+[FILTER]
+    name lua
+    match *
+    protected_mode true
+    time_as_table false
+    script time.lua
+    call ensure_time
+
 [OUTPUT]
-    name                http
+    name                stdout
     Match               kube.*
-    host                ${COLLECTOR_HOST}
-    port                ${COLLECTOR_PORT}
-    uri                 /collect/logs-all
-    compress            gzip
-    format              json
-    http_user           ${COLLECTOR_AUTH_USERNAME}
-    http_passwd         ${COLLECTOR_AUTH_PASSWORD}
-    json_date_key       false
-    json_date_format    iso8601
-    Retry_Limit         100
-    log_response_payload false
+    Format json
