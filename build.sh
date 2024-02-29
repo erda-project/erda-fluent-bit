@@ -31,6 +31,7 @@ function local_build_func() {
 }
 
 function k8s_build_func() {
+  docker login -u "${DOCKER_REGISTRY_USERNAME}" -p "${DOCKER_REGISTRY_PASSWORD}" "${DOCKER_REGISTRY}"
   buildctl --addr tcp://buildkitd.default.svc.cluster.local:1234 \
     --tlscacert=/.buildkit/ca.pem \
     --tlscert=/.buildkit/cert.pem \
