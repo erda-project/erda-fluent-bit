@@ -34,7 +34,7 @@ stages:
             - export DOCKER_REGISTRY_PASSWORD=${{ configs.docker_registry_password }}
             - export PLATFORMS=${{ configs.PLATFORMS }}
             - export IMAGE_TAG=${{ outputs.extract-repo-version.image_tag }}
-            - ./build.sh
+            - ./build.sh # support multi-arch
           resources:
             cpu: 2
             mem: 2048
