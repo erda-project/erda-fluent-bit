@@ -7,7 +7,7 @@ WORKDIR /build
 RUN make build
 
 # bitnami/fluent-bit (gnu sed checked)
-FROM bitnami/fluent-bit:3.0.7 AS fluentbit
+FROM registry.erda.cloud/retag/bitnami-fluent-bit:3.0.7 AS fluentbit
 USER root
 
 RUN ln -s /opt/bitnami/fluent-bit /fluent-bit
