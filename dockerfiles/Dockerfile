@@ -1,5 +1,5 @@
 # build erda.so
-FROM registry.erda.cloud/erda-x/golang:1.17 as gobuilder
+FROM registry.erda.cloud/erda-x/golang:1.17 AS gobuilder
 
 COPY . /build
 WORKDIR /build
@@ -7,7 +7,7 @@ WORKDIR /build
 RUN make build
 
 # bitnami/fluent-bit (gnu sed checked)
-FROM bitnami/fluent-bit:2.2.2 AS fluentbit
+FROM bitnami/fluent-bit:3.0.7 AS fluentbit
 USER root
 
 RUN ln -s /opt/bitnami/fluent-bit /fluent-bit
